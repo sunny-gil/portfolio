@@ -1,4 +1,125 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
+
+// --- STATIC ROLES DATA ---
+const ROLES = [
+  "Full-Stack Developer (MEAN & MERN)",
+  "React.js & Angular Frontend Engineer",
+  "Node.js & NestJS Backend Architect",
+  "Real-Time & Payment Gateway Specialist"
+];
+
+// --- ISOLATED TYPEWRITER COMPONENT ---
+// Prevents continuous full-page re-renders on every keystroke
+const Typewriter = memo(function Typewriter() {
+  const [roleIndex, setRoleIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [typingSpeed, setTypingSpeed] = useState(100);
+
+  const currentRole = ROLES[roleIndex];
+
+  useEffect(() => {
+    let timer;
+
+    if (isDeleting) {
+      timer = setTimeout(() => {
+        setCharIndex(prev => prev - 1);
+        setTypingSpeed(45);
+      }, typingSpeed);
+    } else {
+      timer = setTimeout(() => {
+        setCharIndex(prev => prev + 1);
+        setTypingSpeed(85);
+      }, typingSpeed);
+    }
+
+    if (!isDeleting && charIndex === currentRole.length) {
+      setIsDeleting(true);
+      setTypingSpeed(2000); // Pause on full role
+    } else if (isDeleting && charIndex === 0) {
+      setIsDeleting(false);
+      setRoleIndex(prev => (prev + 1) % ROLES.length);
+      setTypingSpeed(400); // Pause before next role
+    }
+
+    return () => clearTimeout(timer);
+  }, [charIndex, isDeleting, roleIndex, currentRole.length, typingSpeed]);
+
+  return (
+    <span className="typewriter-text" id="typewriter">
+      {currentRole.substring(0, charIndex)}
+    </span>
+  );
+});
+
+// --- STATIC PROJECTS DATA (FROM RESUME) ---
+const PROJECTS = [
+  {
+    id: 'vaultstone-crm',
+    title: 'Vaultstone CRM',
+    subtitle: 'Real-Estate CRM Platform',
+    desc: 'Engineered a comprehensive real-estate CRM platform for builders and sales teams. Implemented Lead, Property, Opportunity, Customer, Task, Dashboard, and User Management modules with scalable NestJS RESTful APIs, JWT authentication, RBAC, and real-time Socket.IO notifications.',
+    tags: ['Angular', 'Node.js', 'NestJS', 'MongoDB', 'Socket.IO'],
+    categories: ['angular', 'nestjs', 'realtime'],
+    link: 'https://crm.vaultstone.in/'
+  },
+  {
+    id: 'ecom-app',
+    title: 'E-Commerce Web Application',
+    subtitle: 'Full-Stack Retail Platform',
+    desc: 'Developed a robust full-stack e-commerce web platform using React.js, NestJS, MongoDB, and RESTful APIs. Implemented end-to-end customer and administrative workflows including product cataloging, cart state management, and secure checkout processing.',
+    tags: ['React.js', 'NestJS', 'MongoDB', 'REST APIs'],
+    categories: ['react', 'nestjs'],
+    link: 'https://ecomui.vercel.app/'
+  },
+  {
+    id: 'emergency-alert',
+    title: 'Emergency Alert System',
+    subtitle: 'Real-Time Mission Critical IoT System',
+    desc: 'Developed high-reliability backend services for an Emergency Alert System supporting real-time device communication and telemetry data streaming. Enhanced Angular modules for mission-critical firefighter workflow management.',
+    tags: ['Angular', 'NestJS', 'MySQL', 'Socket.IO', 'Real-Time IoT'],
+    categories: ['angular', 'nestjs', 'realtime'],
+    link: null,
+    nda: true
+  },
+  {
+    id: 'paydart-gateway',
+    title: 'PayDart & Telr Payment Gateway',
+    subtitle: 'Fintech Transaction Processing APIs',
+    desc: 'Developed and integrated production-grade PayDart and Telr payment gateway APIs using Node.js, Express.js, and MySQL. Implemented transaction validation, security checks, idempotent processing, and resilient error handling.',
+    tags: ['Node.js', 'Express.js', 'MySQL', 'RESTful APIs', 'Fintech Security'],
+    categories: ['nestjs', 'fintech'],
+    link: null,
+    nda: true
+  },
+  {
+    id: 'ayurpiles',
+    title: 'Ayurpiles India Healthcare',
+    subtitle: 'Medical Appointment & Admin Portal',
+    desc: 'Developed a complete healthcare platform using Angular, NestJS, and MySQL, including automated patient appointment booking, practitioner dashboards, and administrative workflows.',
+    tags: ['Angular', 'NestJS', 'MySQL', 'Linux VPS'],
+    categories: ['angular', 'nestjs'],
+    link: 'https://ayurpilesindia.com'
+  },
+  {
+    id: 'athursday',
+    title: 'Athursday Cafe Platform',
+    subtitle: 'Real-Time Restaurant & Menu CMS',
+    desc: 'Engineered an interactive restaurant portal with CMS functionality for live menu management, order updates, and administrative workflow automation.',
+    tags: ['Angular', 'Node.js', 'MySQL', 'CMS'],
+    categories: ['angular', 'nestjs'],
+    link: 'https://athursday.com/home'
+  },
+  {
+    id: 'phian-corp',
+    title: 'Phian Infotech Corporate Platform',
+    subtitle: 'Enterprise Corporate Portal & CMS',
+    desc: 'Developed a high-performance corporate platform with an intuitive custom CMS enabling non-technical teams to manage 50+ services and client inquiry pipelines effortlessly.',
+    tags: ['Angular', 'Node.js', 'MongoDB', 'CMS'],
+    categories: ['angular', 'nestjs'],
+    link: 'https://phianinfotec.com/'
+  }
+];
 
 export default function App() {
   // --- STATE HOOKS ---
@@ -19,104 +140,69 @@ export default function App() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // --- TYPEWRITER EFFECT ---
-  const [typewriterText, setTypewriterText] = useState('');
-  const roles = [
-    "Full-Stack Web Engineer",
-    "API & Backend Systems Architect",
-    "Frontend Architecture Specialist",
-    "Real-Time Applications Developer"
-  ];
-  const [roleIndex, setRoleIndex] = useState(0);
-  const [charIndex, setCharIndex] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [typingSpeed, setTypingSpeed] = useState(100);
-
+  // --- OPTIMIZED SCROLL SPY & STICKY HEADER (rAF + Passive Listener) ---
   useEffect(() => {
-    const currentRole = roles[roleIndex];
-    let timer;
+    let ticking = false;
+    const header = document.getElementById('header');
 
-    if (isDeleting) {
-      timer = setTimeout(() => {
-        setTypewriterText(currentRole.substring(0, charIndex - 1));
-        setCharIndex(prev => prev - 1);
-        setTypingSpeed(50);
-      }, typingSpeed);
-    } else {
-      timer = setTimeout(() => {
-        setTypewriterText(currentRole.substring(0, charIndex + 1));
-        setCharIndex(prev => prev + 1);
-        setTypingSpeed(100);
-      }, typingSpeed);
-    }
-
-    if (!isDeleting && charIndex === currentRole.length) {
-      setIsDeleting(true);
-      setTypingSpeed(2000); // Pause on full word
-    } else if (isDeleting && charIndex === 0) {
-      setIsDeleting(false);
-      setRoleIndex(prev => (prev + 1) % roles.length);
-      setTypingSpeed(500); // Pause before next word
-    }
-
-    return () => clearTimeout(timer);
-  }, [charIndex, isDeleting, roleIndex]);
-
-  // --- SCROLL SPY & STICKY HEADER ---
-  useEffect(() => {
     const handleScroll = () => {
-      const header = document.getElementById('header');
-      if (header) {
-        if (window.scrollY > 50) {
-          header.classList.add('scrolled');
-        } else {
-          header.classList.remove('scrolled');
-        }
-      }
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
 
-      // Scroll spy
-      const sections = document.querySelectorAll('section');
-      let currentSection = 'hero';
-      sections.forEach(section => {
-        const sectionTop = section.offsetTop - 150;
-        const sectionHeight = section.offsetHeight;
-        if (window.scrollY >= sectionTop && window.scrollY < sectionTop + sectionHeight) {
-          currentSection = section.getAttribute('id');
-        }
-      });
-      setActiveSection(currentSection);
+          // Sticky header class toggle
+          if (header) {
+            if (scrollY > 50) {
+              header.classList.add('scrolled');
+            } else {
+              header.classList.remove('scrolled');
+            }
+          }
+
+          // Scroll spy with memoized checks
+          const sections = document.querySelectorAll('section[id]');
+          let currentSection = 'hero';
+          sections.forEach(section => {
+            const sectionTop = section.offsetTop - 160;
+            const sectionHeight = section.offsetHeight;
+            if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+              currentSection = section.getAttribute('id');
+            }
+          });
+
+          // Only trigger React state change if section actually changed
+          setActiveSection(prev => (prev !== currentSection ? currentSection : prev));
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // --- SCROLL REVEAL ANIMATIONS (Intersection Observer) ---
   useEffect(() => {
-    const observerOptions = {
-      threshold: 0.15,
-      rootMargin: '0px 0px -50px 0px'
-    };
+    if (!('IntersectionObserver' in window)) return;
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
+          observer.unobserve(entry.target); // Unobserve once revealed to save CPU
         }
       });
-    }, observerOptions);
-
-    const animatedElements = document.querySelectorAll('section, .timeline-item, .project-card, .skill-category');
-    animatedElements.forEach(el => {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(25px)';
-      el.style.transition = 'opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-      observer.observe(el);
+    }, {
+      threshold: 0.05,
+      rootMargin: '0px 0px -40px 0px'
     });
 
+    const animatedElements = document.querySelectorAll('section, .timeline-item, .project-card, .skill-category');
+    animatedElements.forEach(el => observer.observe(el));
+
     return () => observer.disconnect();
-  }, []);
+  }, [projectFilter]);
 
   // --- CONTACT FORM SUBMISSION ---
   const handleContactSubmit = (e) => {
@@ -171,77 +257,15 @@ export default function App() {
     return () => { document.body.style.overflow = ''; };
   }, [isModalOpen]);
 
-  // --- PROJECTS DATA ---
-  const projects = [
-    {
-      id: 'ayurpiles',
-      title: 'Ayurpiles India',
-      desc: 'A HIPAA-compliant medical appointment portal and management system featuring online scheduling, practitioner dashboards, and automated email reminders.',
-      tags: ['Angular 17', 'NestJS', 'MySQL', 'VPS Cloud'],
-      categories: ['angular', 'nestjs'],
-      link: 'https://ayurpilesindia.com'
-    },
-    {
-      id: 'phian-corp',
-      title: 'Phian Corporate Website',
-      desc: 'A highly scalable corporate platform with a custom-engineered CMS engine enabling non-technical staff to control 50+ service categories and inquiry flows.',
-      tags: ['Angular', 'Node.js', 'MongoDB', 'CMS API'],
-      categories: ['angular', 'nestjs'],
-      link: 'https://phianinfotec.com/'
-    },
-    {
-      id: 'athursday',
-      title: 'Athursday Cafe',
-      desc: 'A digital restaurant framework with a real-time responsive admin menu publisher, order status notifications, and micro-analytics backend dashboards.',
-      tags: ['Angular', 'Node.js', 'MySQL', 'CMS'],
-      categories: ['angular', 'nestjs'],
-      link: 'https://athursday.com/home'
-    },
-    {
-      id: 'vaultstone',
-      title: 'Vaultstone Real Estate',
-      desc: 'A premier property discovery web application integrating Socket.IO events for live coordination and localized notifications.',
-      tags: ['Angular', 'Node.js', 'MongoDB', 'Socket.IO'],
-      categories: ['angular', 'nestjs'],
-      link: 'https://vaultstone.in/home'
-    },
-    {
-      id: 'alert-system',
-      title: 'Emergency Alert System',
-      desc: 'A highly fault-tolerant command dashboard coordinating 1,000+ active IoT safety nodes and generating geographic incident reports instantly.',
-      tags: ['Angular', 'NestJS', 'MySQL', 'IoT Hub'],
-      categories: ['angular', 'nestjs'],
-      link: null,
-      nda: true
-    },
-    {
-      id: 'ecom-ui',
-      title: 'E-Commerce Retail UI',
-      desc: 'A responsive web storefront with fluid layout adjustments, persistent storage caching, dynamic filter matrices, and secure customer sign-in dashboards.',
-      tags: ['React.js', 'NestJS', 'MongoDB', 'REST API'],
-      categories: ['react', 'nestjs'],
-      link: 'https://ecomui.vercel.app/'
-    }
-  ];
-
-  const filteredProjects = projects.filter(p => 
-    projectFilter === 'all' || p.categories.includes(projectFilter)
-  );
+  // --- MEMOIZED FILTERED PROJECTS ---
+  const filteredProjects = useMemo(() => {
+    return projectFilter === 'all'
+      ? PROJECTS
+      : PROJECTS.filter(p => p.categories.includes(projectFilter));
+  }, [projectFilter]);
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{__html: `
-        .visible {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-        }
-        .spinner {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          100% { transform: rotate(360deg); }
-        }
-      `}} />
 
       {/* --- HEADER / NAVIGATION --- */}
       <header id="header">
@@ -308,11 +332,11 @@ export default function App() {
             <h1 className="hero-title">
               Hi, I'm <span className="name">Sunny Gill</span>
               <span style={{ fontSize: '0.6em', fontWeight: 600 }}>
-                <span className="typewriter-text" id="typewriter">{typewriterText}</span>
+                <Typewriter />
               </span>
             </h1>
             <p className="hero-subtitle">
-              I build high-performance web applications, scalable backend APIs, and real-time distributed solutions. Specializing in the **MEAN / MERN** stack with a proven record of optimizing workflows and system uptime.
+              Full-Stack Developer with 3+ years of experience building production web applications and scalable RESTful APIs using Node.js, NestJS, Express.js, Angular, React.js, MongoDB, and MySQL. Specialized in CRM, e-commerce, healthcare, fintech, and real-time distributed systems.
             </p>
             <div className="hero-actions">
               <a href="#projects" className="btn btn-primary">
@@ -344,11 +368,13 @@ export default function App() {
               </div>
               <p><span className="purple">const</span> <span className="blue">developer</span> = &#123;</p>
               <p>&nbsp;&nbsp;name: <span className="green">'Sunny Gill'</span>,</p>
+              <p>&nbsp;&nbsp;role: <span className="green">'Full-Stack Developer'</span>,</p>
               <p>&nbsp;&nbsp;experience: <span className="yellow">'3+ Years'</span>,</p>
-              <p>&nbsp;&nbsp;coreStack: [<span className="green">'MEAN'</span>, <span className="green">'MERN'</span>],</p>
-              <p>&nbsp;&nbsp;remoteReady: <span className="purple">true</span>,</p>
-              <p>&nbsp;&nbsp;scalableAPIs: <span className="purple">true</span>,</p>
-              <p>&nbsp;&nbsp;deliverValue: () =&gt; <span className="green">'Clean code & impact'</span></p>
+              <p>&nbsp;&nbsp;frontend: [<span className="green">'React.js'</span>, <span className="green">'Angular'</span>],</p>
+              <p>&nbsp;&nbsp;backend: [<span className="green">'Node.js'</span>, <span className="green">'NestJS'</span>, <span className="green">'Express'</span>],</p>
+              <p>&nbsp;&nbsp;databases: [<span className="green">'MongoDB'</span>, <span className="green">'MySQL'</span>],</p>
+              <p>&nbsp;&nbsp;architecture: [<span className="green">'Socket.IO'</span>, <span className="green">'JWT/RBAC'</span>, <span className="green">'REST APIs'</span>],</p>
+              <p>&nbsp;&nbsp;delivers: () =&gt; <span className="green">'Scalable production systems'</span></p>
               <p>&#125;;</p>
             </div>
           </div>
@@ -366,10 +392,10 @@ export default function App() {
           <div className="about-grid">
             <div className="about-content">
               <p>
-                I am a professional <span className="highlight">Full-Stack Web Developer</span> with 3+ years of experience building scalable web applications. I specialize in designing responsive frontends using **Angular 16/17** and **React.js**, and building secure, performant backends with **NestJS, Node.js, and Express**.
+                I am a professional <span className="highlight">Full-Stack Developer</span> with 3+ years of experience building robust production web applications and scalable RESTful APIs using <strong>Node.js, NestJS, Express.js, Angular, React.js, MongoDB, and MySQL</strong>.
               </p>
               <p>
-                I focus on building high-performance REST APIs, real-time web solutions, and secure payment integrations. I write clean, modular, and maintainable code targeted for enterprise growth and collaborative remote teams.
+                Proven track record in architecting <strong>CRM, e-commerce, healthcare, fintech, and real-time distributed platforms</strong>. Hands-on mastery in JWT authentication, Role-Based Access Control (RBAC), Socket.IO live notifications, payment gateway integrations (PayDart, Telr), API optimization, and cloud deployment on Linux VPS, Render, and AWS EC2.
               </p>
               <div style={{ marginTop: '32px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                 <a href="https://linkedin.com/in/sunny-gill1706" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
@@ -400,13 +426,13 @@ export default function App() {
               </div>
               <div className="stat-item glass-card">
                 <div className="stat-number">6+</div>
-                <div className="stat-label">Web Deployments</div>
-                <div className="stat-desc">Cloud & VPS Environments</div>
+                <div className="stat-label">Cloud Deployments</div>
+                <div className="stat-desc">AWS EC2, Linux VPS, Render</div>
               </div>
               <div className="stat-item glass-card">
-                <div className="stat-number">40%</div>
-                <div className="stat-label">Workflow Efficiency</div>
-                <div className="stat-desc">Average Process Automation</div>
+                <div className="stat-number">100%</div>
+                <div className="stat-label">API Reliability</div>
+                <div className="stat-desc">Secure JWT, RBAC & Socket.IO</div>
               </div>
             </div>
           </div>
@@ -418,8 +444,8 @@ export default function App() {
         <div className="container">
           <div className="section-header">
             <span className="section-tag">Capabilities</span>
-            <h2 className="section-title">Technical Expertise</h2>
-            <p className="section-desc">My primary technical stack focused on scalable architecture and enterprise-grade web development.</p>
+            <h2 className="section-title">Technical Skills</h2>
+            <p className="section-desc">Enterprise-grade technologies and tools used to build scalable, fault-tolerant applications.</p>
           </div>
 
           <div className="skills-container">
@@ -427,16 +453,16 @@ export default function App() {
             <div className="skill-category glass-card">
               <div className="skill-category-header">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                <h3 className="skill-category-title">Frontend Stack</h3>
+                <h3 className="skill-category-title">Frontend Development</h3>
               </div>
               <div className="skill-list">
-                <span className="skill-tag">Angular 16/17</span>
                 <span className="skill-tag">React.js</span>
-                <span className="skill-tag">TypeScript</span>
+                <span className="skill-tag">Angular</span>
                 <span className="skill-tag">JavaScript (ES6+)</span>
+                <span className="skill-tag">TypeScript</span>
                 <span className="skill-tag">HTML5 & CSS3</span>
-                <span className="skill-tag">RxJS</span>
-                <span className="skill-tag">Responsive Design</span>
+                <span className="skill-tag">Bootstrap</span>
+                <span className="skill-tag">Responsive Web Design</span>
               </div>
             </div>
 
@@ -444,50 +470,77 @@ export default function App() {
             <div className="skill-category glass-card">
               <div className="skill-category-header">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-                <h3 className="skill-category-title">Backend Architecture</h3>
+                <h3 className="skill-category-title">Backend & APIs</h3>
               </div>
               <div className="skill-list">
                 <span className="skill-tag">Node.js</span>
                 <span className="skill-tag">NestJS</span>
                 <span className="skill-tag">Express.js</span>
                 <span className="skill-tag">RESTful APIs</span>
-                <span className="skill-tag">JWT Authentication</span>
-                <span className="skill-tag">RBAC Security</span>
                 <span className="skill-tag">Socket.IO</span>
-                <span className="skill-tag">MVC Design Pattern</span>
+                <span className="skill-tag">Payment Gateway APIs</span>
               </div>
             </div>
 
-            {/* Databases & Cloud */}
+            {/* Databases */}
             <div className="skill-category glass-card">
               <div className="skill-category-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-                <h3 className="skill-category-title">Databases & DevOps</h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                <h3 className="skill-category-title">Database Systems</h3>
               </div>
               <div className="skill-list">
                 <span className="skill-tag">MongoDB</span>
                 <span className="skill-tag">MySQL</span>
-                <span className="skill-tag">AWS (EC2)</span>
-                <span className="skill-tag">Linux VPS</span>
-                <span className="skill-tag">Hostinger API</span>
-                <span className="skill-tag">Render Cloud</span>
+                <span className="skill-tag">Query Optimization</span>
+                <span className="skill-tag">Data Modeling</span>
+                <span className="skill-tag">Indexing</span>
               </div>
             </div>
 
-            {/* Tools & Methods */}
+            {/* Security */}
             <div className="skill-category glass-card">
               <div className="skill-category-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 16 12 12 8"></polygon></svg>
-                <h3 className="skill-category-title">Tools & Integrations</h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <h3 className="skill-category-title">Auth & Security</h3>
               </div>
               <div className="skill-list">
-                <span className="skill-tag">Git & GitHub</span>
-                <span className="skill-tag">Swagger Docs</span>
-                <span className="skill-tag">Postman API Testing</span>
-                <span className="skill-tag">Jest Testing</span>
-                <span className="skill-tag">PayGart Integration</span>
-                <span className="skill-tag">Telr API</span>
+                <span className="skill-tag">JWT</span>
+                <span className="skill-tag">RBAC</span>
+                <span className="skill-tag">Authentication</span>
+                <span className="skill-tag">Authorization</span>
+                <span className="skill-tag">Error Handling</span>
+              </div>
+            </div>
+
+            {/* Cloud & DevOps */}
+            <div className="skill-category glass-card">
+              <div className="skill-category-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
+                <h3 className="skill-category-title">Cloud & Deployment</h3>
+              </div>
+              <div className="skill-list">
+                <span className="skill-tag">AWS EC2</span>
+                <span className="skill-tag">Linux Server</span>
+                <span className="skill-tag">Render</span>
+                <span className="skill-tag">Hostinger</span>
+                <span className="skill-tag">PM2</span>
+              </div>
+            </div>
+
+            {/* Architecture & Tools */}
+            <div className="skill-category glass-card">
+              <div className="skill-category-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                <h3 className="skill-category-title">Architecture & Tools</h3>
+              </div>
+              <div className="skill-list">
+                <span className="skill-tag">MVC Architecture</span>
+                <span className="skill-tag">Modular Architecture</span>
                 <span className="skill-tag">Agile / Scrum</span>
+                <span className="skill-tag">Git & GitHub</span>
+                <span className="skill-tag">Swagger</span>
+                <span className="skill-tag">Postman</span>
+                <span className="skill-tag">Jest</span>
               </div>
             </div>
           </div>
@@ -500,7 +553,7 @@ export default function App() {
           <div className="section-header">
             <span className="section-tag">Career History</span>
             <h2 className="section-title">Professional Experience</h2>
-            <p className="section-desc">Experience working in dynamic engineering teams, aligning technical strategy with business value.</p>
+            <p className="section-desc">Track record of building enterprise products, high-throughput APIs, and real-time systems.</p>
           </div>
 
           <div className="timeline">
@@ -513,16 +566,16 @@ export default function App() {
                     <h3>Software Developer</h3>
                     <h4>Phian Infotech, Nagpur</h4>
                   </div>
-                  <span className="timeline-date">July 2025 - Present</span>
+                  <span className="timeline-date">July 2025 – Present</span>
                 </div>
                 <ul className="timeline-bullets">
-                  <li>Engineered the **Ayurpiles India** healthcare platform using **Angular 17, NestJS, and MySQL**, streamlining appointment scheduling workflows and reducing admin process duration by **40%**.</li>
-                  <li>Successfully deployed and configured **6+ production web applications** on Hostinger VPS and Render cloud hosting, setting up continuous environment-specific backend configurations for zero-downtime deployment.</li>
-                  <li>Engineered a dynamic corporate website with an integrated CMS system, empowering non-technical administrators to seamlessly update **50+ active services**.</li>
-                  <li>Implemented Socket.IO real-time menu management & geolocation APIs for cafe platforms, automating restaurant workflows and saving manual work by **70%**.</li>
-                  <li>Delivered a real estate listing website and web platform, integrating Socket.IO for live location tracking and real-time updates.</li>
-                  <li>Designed and optimized high-performance, modular RESTful APIs using **NestJS and Express**, serving client integrations across 5 concurrent corporate accounts.</li>
-                  <li>Architected and delivered a highly responsive, end-to-end full-stack e-commerce engine using **React.js, NestJS, and MongoDB**.</li>
+                  <li>Developed production-ready backend applications using <strong>Node.js, NestJS, Express.js, MongoDB, and MySQL</strong>.</li>
+                  <li>Designed and implemented RESTful APIs with <strong>JWT authentication, role-based access control (RBAC), validation</strong>, and structured error handling.</li>
+                  <li>Developed <strong>Vaultstone CRM</strong> featuring Lead, Opportunity, Property, Customer, Task, Dashboard, and User Management modules.</li>
+                  <li>Implemented real-time notifications and live updates using <strong>Socket.IO</strong>.</li>
+                  <li>Developed the <strong>Ayurpiles India</strong> healthcare platform using <strong>Angular, NestJS, and MySQL</strong>, including appointment booking and administrative workflows.</li>
+                  <li>Developed CMS functionality for the <strong>Phian Infotech corporate website</strong> and <strong>Athursday Cafe platform</strong>.</li>
+                  <li>Deployed and maintained production applications on <strong>Linux servers, Hostinger, and Render</strong>.</li>
                 </ul>
               </div>
             </div>
@@ -534,37 +587,70 @@ export default function App() {
                 <div className="timeline-header">
                   <div className="timeline-title">
                     <h3>Software Developer</h3>
-                    <h4>Atina Technology Pvt. Ltd., Nagpur</h4>
+                    <h4>Atina Technology Pvt. Ltd, Nagpur</h4>
                   </div>
-                  <span className="timeline-date">Feb 2024 - June 2025</span>
+                  <span className="timeline-date">Feb 2024 – June 2025</span>
                 </div>
                 <ul className="timeline-bullets">
-                  <li>Architected and delivered a highly responsive, end-to-end full-stack e-commerce engine using **React.js, NestJS, and MongoDB**, serving a core customer base of **1,000+ potential users**.</li>
-                  <li>Led the server engineering and real-time messaging pipeline for a critical Emergency Alert System, orchestrating event payloads for **500 to 1,000 active smart-firefighting devices**.</li>
-                  <li>Upgraded core Angular UI modules for critical dispatch consoles, optimizing role-based access controls and streamlining operations across 3 distinct operator workflows.</li>
-                  <li>Fine-tuned MySQL query schedules and MongoDB indexes, accelerating API execution speeds by **25%** for real-time traffic statistics.</li>
-                  <li>Contributed to 10+ Agile sprint cycles involving code reviews, sprint planning, and CI/CD deployment activities.</li>
+                  <li>Developed a full-stack e-commerce platform using <strong>React.js, NestJS, MongoDB, and RESTful APIs</strong>.</li>
+                  <li>Developed backend services for an <strong>Emergency Alert System</strong> supporting real-time device communication.</li>
+                  <li>Enhanced <strong>Angular modules</strong> for firefighter workflow management.</li>
+                  <li>Optimized <strong>NestJS APIs and database operations</strong> across MongoDB and MySQL.</li>
+                  <li>Participated in <strong>Agile development, sprint planning, code reviews</strong>, and collaborative software development.</li>
                 </ul>
               </div>
             </div>
 
-            {/* Ulis Technology */}
+            {/* ULIS Technology */}
             <div className="timeline-item">
               <div className="timeline-dot"></div>
               <div className="timeline-card glass-card">
                 <div className="timeline-header">
                   <div className="timeline-title">
                     <h3>Software Developer</h3>
-                    <h4>Ulis Technology Pvt. Ltd., Nagpur</h4>
+                    <h4>ULIS Technology Pvt. Ltd, Nagpur</h4>
                   </div>
-                  <span className="timeline-date">May 2023 - Jan 2024</span>
+                  <span className="timeline-date">May 2022 – June 2023</span>
                 </div>
                 <ul className="timeline-bullets">
-                  <li>Integrated secure payment gateway APIs (**PayGart** and **Telr**) for a high-traffic fintech web portal, processing **1,000+ daily financial operations** with strict transaction security.</li>
-                  <li>Authored robust server-side request verification logic and transaction retry mechanisms, decreasing checkout failures by **15%**.</li>
-                  <li>Maintained production repository standards, branching guides, and code reviews on GitHub, facilitating clean merges and stable production pipelines across **3+ primary releases**.</li>
+                  <li>Developed and integrated <strong>PayDart and Telr payment gateway APIs</strong> using Node.js, Express.js, and MySQL.</li>
+                  <li>Implemented transaction validation, secure payment processing, and resilient API error handling.</li>
+                  <li>Managed Git workflows and supported production application deployments.</li>
                 </ul>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- EDUCATION SECTION --- */}
+      <section id="education" style={{ paddingTop: '10px', paddingBottom: '70px' }}>
+        <div className="container">
+          <div className="section-header" style={{ marginBottom: '36px' }}>
+            <span className="section-tag">Academic Background</span>
+            <h2 className="section-title">Education</h2>
+          </div>
+          <div className="timeline-card glass-card" style={{ maxWidth: '820px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '24px', padding: '28px 32px' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--color-primary)',
+              flexShrink: 0
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)' }}>Bachelor of Engineering – Information Technology</h3>
+                <span className="timeline-date" style={{ margin: 0 }}>Graduated: 2019</span>
+              </div>
+              <h4 style={{ fontSize: '15px', color: 'var(--color-secondary)', fontWeight: 500 }}>VMIT, Nagpur, India</h4>
             </div>
           </div>
         </div>
@@ -582,8 +668,9 @@ export default function App() {
           <div className="project-filters">
             <button className={`filter-btn ${projectFilter === 'all' ? 'active' : ''}`} onClick={() => setProjectFilter('all')}>All Projects</button>
             <button className={`filter-btn ${projectFilter === 'angular' ? 'active' : ''}`} onClick={() => setProjectFilter('angular')}>Angular</button>
-            <button className={`filter-btn ${projectFilter === 'react' ? 'active' : ''}`} onClick={() => setProjectFilter('react')}>React</button>
-            <button className={`filter-btn ${projectFilter === 'nestjs' ? 'active' : ''}`} onClick={() => setProjectFilter('nestjs')}>NestJS / Node</button>
+            <button className={`filter-btn ${projectFilter === 'react' ? 'active' : ''}`} onClick={() => setProjectFilter('react')}>React.js</button>
+            <button className={`filter-btn ${projectFilter === 'nestjs' ? 'active' : ''}`} onClick={() => setProjectFilter('nestjs')}>NestJS / Node.js</button>
+            <button className={`filter-btn ${projectFilter === 'realtime' ? 'active' : ''}`} onClick={() => setProjectFilter('realtime')}>Real-Time & IoT</button>
           </div>
 
           <div className="projects-grid">
@@ -592,6 +679,18 @@ export default function App() {
                 <div className="project-body">
                   <div className="project-header-row">
                     <div className="project-icon-box">
+                      {project.id === 'vaultstone-crm' && (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                      )}
+                      {project.id === 'ecom-app' && (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                      )}
+                      {project.id === 'emergency-alert' && (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                      )}
+                      {project.id === 'paydart-gateway' && (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                      )}
                       {project.id === 'ayurpiles' && (
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                       )}
@@ -600,15 +699,6 @@ export default function App() {
                       )}
                       {project.id === 'athursday' && (
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                      )}
-                      {project.id === 'vaultstone' && (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                      )}
-                      {project.id === 'alert-system' && (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                      )}
-                      {project.id === 'ecom-ui' && (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                       )}
                     </div>
                     <div className="project-link-box">
@@ -621,6 +711,11 @@ export default function App() {
                       )}
                     </div>
                   </div>
+                  {project.subtitle && (
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '4px' }}>
+                      {project.subtitle}
+                    </div>
+                  )}
                   <h3 className="project-title">{project.title}</h3>
                   <p className="project-desc">{project.desc}</p>
                   <div className="project-tech-tags">
